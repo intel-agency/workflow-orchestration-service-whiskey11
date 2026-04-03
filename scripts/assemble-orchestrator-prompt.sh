@@ -23,8 +23,13 @@
 
 set -euo pipefail
 
-ASSEMBLED_PROMPT=".assembled-orchestrator-prompt.md"
-PROMPT_TEMPLATE=".github/workflows/prompts/orchestrator-agent-prompt.md"
+# ORCHESTRATION_ROOT resolves the base directory for all project files.
+# In the server container this defaults to /opt/orchestration; in local dev
+# or CI it falls back to the current working directory.
+ORCHESTRATION_ROOT="${ORCHESTRATION_ROOT:-.}"
+
+ASSEMBLED_PROMPT="${ORCHESTRATION_ROOT}/.assembled-orchestrator-prompt.md"
+PROMPT_TEMPLATE="${ORCHESTRATION_ROOT}/.github/workflows/prompts/orchestrator-agent-prompt.md"
 
 EVENT_NAME="${1:-}"
 EVENT_ACTION="${2:-}"

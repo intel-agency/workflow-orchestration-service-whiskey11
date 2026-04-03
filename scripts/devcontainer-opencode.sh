@@ -30,6 +30,11 @@ PROMPT_FILE=""
 PROMPT_STRING=""
 OPENCODE_SERVER_DIR="${OPENCODE_SERVER_DIR:-}"
 
+# ORCHESTRATION_ROOT resolves the base directory for project files.
+# In the server container this is set to /opt/orchestration (via docker-compose);
+# in local dev or CI it falls back to the current directory (.).
+ORCHESTRATION_ROOT="${ORCHESTRATION_ROOT:-.}"
+
 usage() {
     cat >&2 <<'EOF'
 Usage: devcontainer-opencode.sh <command> [options]
@@ -101,8 +106,10 @@ case "$COMMAND" in
                 docker start "$container_id"
             fi
         fi
+        # Resolve server script path relative to ORCHESTRATION_ROOT
+        server_script="${ORCHESTRATION_ROOT}/scripts/start-opencode-server.sh"
         devcontainer exec "${shared_args[@]}" \
-            -- bash ./scripts/start-opencode-server.sh
+            -- bash "$server_script"
         ;;
 
     prompt)
@@ -124,15 +131,21 @@ case "$COMMAND" in
         fi
         # Derive default server-side dir from the workspace folder basename
         if [[ -z "$OPENCODE_SERVER_DIR" ]]; then
-            OPENCODE_SERVER_DIR="/workspaces/$(basename "$(cd "$WORKSPACE_FOLDER" && pwd)")"
+            if [[ -n "$ORCHESTRATION_ROOT" ]]; then
+                OPENCODE_SERVER_DIR="$ORCHESTRATION_ROOT"
+            else
+                OPENCODE_SERVER_DIR="/workspaces/$(basename "$(cd "$WORKSPACE_FOLDER" && pwd)")"
+            fi
         fi
+        # Resolve prompt runner script path relative to ORCHESTRATION_ROOT
+        run_script="${ORCHESTRATION_ROOT}/scripts/run_opencode_prompt.sh"
         devcontainer exec "${shared_args[@]}" \
             --remote-env ZHIPU_API_KEY="$ZHIPU_API_KEY" \
             --remote-env KIMI_CODE_ORCHESTRATOR_AGENT_API_KEY="$KIMI_CODE_ORCHESTRATOR_AGENT_API_KEY" \
             --remote-env GITHUB_TOKEN="$GH_ORCHESTRATION_AGENT_TOKEN" \
             --remote-env GITHUB_PERSONAL_ACCESS_TOKEN="$GH_ORCHESTRATION_AGENT_TOKEN" \
             --remote-env GH_ORCHESTRATION_AGENT_TOKEN="$GH_ORCHESTRATION_AGENT_TOKEN" \
-            -- bash ./run_opencode_prompt.sh -a "$OPENCODE_SERVER_URL" -d "$OPENCODE_SERVER_DIR" "${prompt_arg[@]}"
+            -- bash "$run_script" -a "$OPENCODE_SERVER_URL" -d "$OPENCODE_SERVER_DIR" "${prompt_arg[@]}"
         ;;
 
     status)

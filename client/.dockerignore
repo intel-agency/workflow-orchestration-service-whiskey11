@@ -1,0 +1,43 @@
+# Version control
+.git/
+.gitignore
+
+# Python cache and bytecode
+__pycache__/
+*.pyc
+*.pyo
+*.pyd
+.Python
+
+# Test artifacts
+tests/
+.pytest_cache/
+.coverage
+htmlcov/
+coverage.xml
+
+# Development tools
+.vscode/
+.idea/
+
+# Environment and secrets
+.env
+.env.*
+*.env
+
+# Docker artifacts
+Dockerfile
+.dockerignore
+
+# Documentation
+*.md
+docs/
+
+# Build artifacts
+dist/
+build/
+*.egg-info/
+
+# OS files
+.DS_Store
+Thumbs.db
