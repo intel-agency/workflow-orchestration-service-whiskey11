@@ -4,6 +4,107 @@ description: Project instructions for coding agents
 scope: repository
 ---
 
+# AGENTS.md
+
+## Project Overview
+
+**Workflow Orchestration Service** — A standalone client/server orchestration service that migrates
+orchestration from a GitHub Actions-embedded model to a self-hosted, networked architecture.
+
+- **Server**: Docker container running `opencode serve` (port 4096) with AI agents, MCP servers, and shell bridge scripts
+- **Client**: Python FastAPI service (port 8000) with webhook handler and Sentinel polling orchestrator
+- **GitHub App**: Delivers repository events as webhooks to the client
+
+The codebase has ~80-95% existing code coverage for core components — the migration is primarily an
+integration and packaging effort.
+
+## Setup Commands
+
+- Install dependencies: `cd client && uv pip install -e .`
+- Install dev tools: `pwsh -NoProfile -File ./scripts/install-dev-tools.ps1`
+- Build: `docker compose build` (or `docker build -t orchestration-client ./client`)
+- Run tests: `pwsh -NoProfile -File ./scripts/validate.ps1 -Test`
+- Validate all: `pwsh -NoProfile -File ./scripts/validate.ps1 -All`
+- Lint: `pwsh -NoProfile -File ./scripts/validate.ps1 -Lint`
+- Scan: `pwsh -NoProfile -File ./scripts/validate.ps1 -Scan`
+
+## Project Structure
+
+```
+/
+├── client/                          # Orchestration Client (Python/FastAPI)
+│   ├── src/
+│   │   ├── main.py                  # Entry point: dual-mode (webhook + polling)
+│   │   ├── config.py                # Centralized configuration from env vars
+│   │   ├── sentinel.py              # Sentinel Orchestrator (polling loop)
+│   │   ├── notifier.py              # Webhook Handler (FastAPI)
+│   │   ├── models/work_item.py      # WorkItem, TaskType, WorkItemStatus (Pydantic)
+│   │   └── queue/github_queue.py    # ITaskQueue ABC, GitHubQueue implementation
+│   ├── scripts/devcontainer-opencode.sh  # Shell bridge for remote dispatch
+│   ├── pyproject.toml
+│   ├── requirements.txt
+│   └── Dockerfile
+├── scripts/                         # Shared scripts
+│   ├── devcontainer-opencode.sh     # Shell bridge (primary API)
+│   ├── start-opencode-server.sh     # Server bootstrap
+│   ├── assemble-orchestrator-prompt.sh
+│   ├── validate.ps1                 # CI validation runner
+│   └── import-labels.ps1            # Label management
+├── .opencode/                       # Agent definitions (27 agents) and commands (20)
+├── .github/workflows/               # CI workflows (validate.yml, orchestrator-agent.yml)
+├── plan_docs/                       # Planning documents (not linted)
+├── test/                            # Test suite (bash + Pester)
+├── docs/                            # Documentation
+├── docker-compose.yml               # Local dev orchestration
+├── AGENTS.md                        # This file — agent instructions
+└── opencode.json                    # opencode config (models, MCP servers)
+```
+
+## Code Style
+
+- Python: Follow PEP 8, use type hints, Pydantic for data models
+- All async operations use `asyncio` with `httpx.AsyncClient`
+- Shell scripts: `set -euo pipefail`, use `$ORCHESTRATION_ROOT` for paths
+- PowerShell: Follow naming conventions in `ai-powershell-instructions.md`
+- XML doc comments on all public APIs
+- No secrets in code — use environment variables exclusively
+
+## Testing Instructions
+
+- Run full suite: `pwsh -NoProfile -File ./scripts/validate.ps1 -Test`
+- Bash tests: `bash test/test-prompt-assembly.sh`
+- Pester tests: `pwsh -NoProfile -File ./test/run-pester-tests.ps1`
+- Agent validation: `pwsh -NoProfile -File ./test/validate-agents.ps1`
+- Python tests (when available): `cd client && pytest`
+- Always add or update tests for changed code
+
+## Architecture Notes
+
+- **Shell Bridge Protocol**: `devcontainer-opencode.sh` is the primary API between Sentinel and Server
+- **Polling-First Resiliency**: Webhook is optimization; polling ensures self-healing on restart
+- **Provider-Agnostic Queue**: `ITaskQueue` ABC allows swapping GitHub for Linear/Jira later
+- **Credential Scrubbing**: `scrub_secrets()` on all GitHub-posted content (8 regex patterns)
+- **Dual-Mode Operation**: FastAPI webhook server + Sentinel polling loop run concurrently in main.py
+
+## PR and Commit Guidelines
+
+- Commit message format: `type: description` (feat, fix, docs, chore, refactor)
+- All actions in workflows must be SHA-pinned: `uses: owner/action@<40-char-sha> # vX.Y.Z`
+- Use feature branches + PRs; do not push directly to main
+- Run `pwsh -NoProfile -File ./scripts/validate.ps1 -All` before every commit
+- Branch naming: `dynamic-workflow-<name>` for dynamic workflow branches
+
+## Common Pitfalls
+
+- The server Docker image is built in the external `intel-agency/workflow-orchestration-prebuild` repo — not here
+- `.opencode/` must NOT be copied in a Dockerfile (it's checked out by `actions/checkout`)
+- The `__EVENT_DATA__` placeholder in `orchestrator-agent-prompt.md` must be preserved
+- Orchestrator delegation depth ≤ 2; orchestrator never writes code directly
+- `plan_docs/` is excluded from strict linting — do not add linting rules for it
+- Use `GH_ORCHESTRATION_AGENT_TOKEN` (PAT), never `GITHUB_TOKEN` for orchestrator operations
+
+---
+
 <instructions>
   <purpose>
     <summary>
