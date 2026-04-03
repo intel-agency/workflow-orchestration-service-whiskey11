@@ -1,18 +1,33 @@
 services:
+  # ─── Server ─────────────────────────────────────────────────────────────
+  # Prebuilt devcontainer image from intel-agency/workflow-orchestration-prebuild.
+  # Runs `opencode serve` on port 4096 with AI agents, MCP servers, and shell
+  # bridge scripts. Starts automatically via the devcontainer lifecycle hook.
   orchestration-server:
     image: ghcr.io/intel-agency/workflow-orchestration-prebuild/devcontainer:main-latest
     ports:
       - "4096:4096"
     environment:
-      - ZHIPU_API_KEY=${ZHIPU_API_KEY}
-      - KIMI_CODE_ORCHESTRATOR_AGENT_API_KEY=${KIMI_CODE_ORCHESTRATOR_AGENT_API_KEY}
-      - OPENAI_API_KEY=${OPENAI_API_KEY}
-      - GEMINI_API_KEY=${GEMINI_API_KEY}
-      - GH_ORCHESTRATION_AGENT_TOKEN=${GH_ORCHESTRATION_AGENT_TOKEN}
-      - GITHUB_TOKEN=${GH_ORCHESTRATION_AGENT_TOKEN}
+      # ── AI Model Provider Keys ──
+      - ZHIPU_API_KEY=${ZHIPU_API_KEY}                                      # ZhipuAI GLM models (glm-5, glm-4.7, etc.)
+      - KIMI_CODE_ORCHESTRATOR_AGENT_API_KEY=${KIMI_CODE_ORCHESTRATOR_AGENT_API_KEY}  # Kimi (Moonshot) models (kimi-k2-thinking, k2p5)
+      - OPENAI_API_KEY=${OPENAI_API_KEY}                                    # OpenAI models (gpt-5.4, gpt-5.4-mini, etc.)
+      - GEMINI_API_KEY=${GEMINI_API_KEY}                                    # Google Gemini models
+      - GOOGLE_GENERATIVE_AI_API_KEY=${GEMINI_API_KEY}                      # Gemini SDK reads this variable name
+      # ── GitHub Authentication ──
+      - GH_ORCHESTRATION_AGENT_TOKEN=${GH_ORCHESTRATION_AGENT_TOKEN}        # Org-level PAT: repo, workflow, project, read:org
+      - GITHUB_TOKEN=${GH_ORCHESTRATION_AGENT_TOKEN}                        # Alias for tools that read GITHUB_TOKEN
+      - GH_TOKEN=${GH_ORCHESTRATION_AGENT_TOKEN}                            # Alias for gh CLI authentication
+      # ── Orchestration Configuration ──
+      - ORCHESTRATION_ROOT=/opt/orchestration                               # Base directory for all orchestration files
+      - GITHUB_ORG=${GITHUB_ORG}                                            # Target GitHub organization
+      - GITHUB_REPO=${GITHUB_REPO}                                          # Target GitHub repository (owner/repo)
     volumes:
-      - server-memory:/opt/orchestration/.memory
+      - server-memory:/opt/orchestration/.memory                            # MCP knowledge graph persistence (JSONL)
 
+  # ─── Client ─────────────────────────────────────────────────────────────
+  # Python FastAPI service (port 8000) with webhook handler and Sentinel
+  # polling orchestrator. Connects to the server via OPENCODE_SERVER_URL.
   orchestration-client:
     build:
       context: ./client
@@ -20,17 +35,22 @@ services:
     ports:
       - "8000:8000"
     environment:
-      - OPENCODE_SERVER_URL=http://orchestration-server:4096
-      - GITHUB_TOKEN=${GH_ORCHESTRATION_AGENT_TOKEN}
-      - GITHUB_ORG=${GITHUB_ORG}
-      - GITHUB_REPO=${GITHUB_REPO}
-      - WEBHOOK_SECRET=${WEBHOOK_SECRET}
-      - SENTINEL_BOT_LOGIN=${SENTINEL_BOT_LOGIN:-}
+      # ── Server Connection ──
+      - OPENCODE_SERVER_URL=http://orchestration-server:4096                # Internal URL for opencode server
+      # ── GitHub Authentication ──
+      - GITHUB_TOKEN=${GH_ORCHESTRATION_AGENT_TOKEN}                        # Token for GitHub API calls (webhook + polling)
+      - GH_ORCHESTRATION_AGENT_TOKEN=${GH_ORCHESTRATION_AGENT_TOKEN}        # Original token name (used by some scripts)
+      # ── Repository Configuration ──
+      - GITHUB_ORG=${GITHUB_ORG}                                            # Target GitHub organization
+      - GITHUB_REPO=${GITHUB_REPO}                                          # Target GitHub repository (owner/repo)
+      # ── Webhook Security ──
+      - WEBHOOK_SECRET=${WEBHOOK_SECRET}                                    # HMAC secret for webhook signature verification
+      - SENTINEL_BOT_LOGIN=${SENTINEL_BOT_LOGIN:-}                          # Bot login for issue comment attribution
     depends_on:
       orchestration-server:
         condition: service_started
     healthcheck:
-      test: ["CMD", "python", "-c", "import urllib.request; urllib.request.urlopen('http://localhost:8000/health')"]
+      test: ["CMD", "curl", "-f", "http://localhost:8000/health"]
       interval: 30s
       timeout: 10s
       retries: 3
