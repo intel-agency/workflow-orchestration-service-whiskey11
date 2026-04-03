@@ -9,8 +9,11 @@ See: workflow-orchestration-service Plan Review, I-1 / R-3
 """
 
 import re
+from datetime import datetime
 from enum import Enum
-from pydantic import BaseModel
+from typing import Dict, List, Optional
+
+from pydantic import BaseModel, Field
 
 
 class TaskType(str, Enum):
@@ -19,11 +22,20 @@ class TaskType(str, Enum):
     PLAN = "PLAN"
     IMPLEMENT = "IMPLEMENT"
     BUGFIX = "BUGFIX"
+    PULL_REQUEST = "PULL_REQUEST"
+    REVIEW = "REVIEW"
+    WORKFLOW_DISPATCH = "WORKFLOW_DISPATCH"
+    OTHER = "OTHER"
 
 
 class WorkItemStatus(str, Enum):
-    """Maps directly to GitHub Issue labels used as state indicators."""
+    """Maps directly to GitHub Issue labels used as state indicators.
 
+    Includes both GitHub label-based values (used by sentinel/notifier)
+    and generic lifecycle values for cross-provider usage.
+    """
+
+    # GitHub label-based statuses (used by sentinel and notifier)
     QUEUED = "agent:queued"
     IN_PROGRESS = "agent:in-progress"
     RECONCILING = "agent:reconciling"
@@ -32,6 +44,12 @@ class WorkItemStatus(str, Enum):
     INFRA_FAILURE = "agent:infra-failure"
     STALLED_BUDGET = "agent:stalled-budget"
 
+    # Generic lifecycle statuses (provider-agnostic)
+    PENDING = "PENDING"
+    COMPLETED = "COMPLETED"
+    FAILED = "FAILED"
+    CANCELLED = "CANCELLED"
+
 
 class WorkItem(BaseModel):
     """Unified work item used across all workflow-orchestration-service components.
@@ -39,8 +57,14 @@ class WorkItem(BaseModel):
     Fields populated by the Notifier are marked Optional so the Sentinel
     can construct WorkItems from its own polling results without requiring
     the raw webhook payload.
+
+    Extended fields (title, body, repository, labels, assignees, etc.)
+    are all Optional with defaults to maintain backward compatibility.
     """
 
+    model_config = {"from_attributes": True}
+
+    # --- Core fields (required) ---
     id: str
     issue_number: int
     source_url: str
@@ -49,6 +73,16 @@ class WorkItem(BaseModel):
     task_type: TaskType
     status: WorkItemStatus
     node_id: str
+
+    # --- Extended fields (all optional with defaults) ---
+    title: Optional[str] = Field(default=None, description="Issue or task title")
+    body: Optional[str] = Field(default=None, description="Full body/description of the work item")
+    repository: Optional[str] = Field(default=None, description="Repository full name (org/repo)")
+    labels: List[str] = Field(default_factory=list, description="List of label names")
+    assignees: List[str] = Field(default_factory=list, description="List of assignee login names")
+    created_at: Optional[datetime] = Field(default=None, description="Creation timestamp")
+    updated_at: Optional[datetime] = Field(default=None, description="Last update timestamp")
+    metadata: Dict[str, object] = Field(default_factory=dict, description="Arbitrary metadata for extensibility")
 
 
 # --- Credential Scrubber (R-7) ---
@@ -68,7 +102,15 @@ _SECRET_PATTERNS = [
 
 
 def scrub_secrets(text: str, replacement: str = "***REDACTED***") -> str:
-    """Strip known secret patterns from text for safe public posting."""
+    """Strip known secret patterns from text for safe public posting.
+
+    Args:
+        text: The input string potentially containing secrets.
+        replacement: The string to replace matched secrets with.
+
+    Returns:
+        The sanitized string with secrets replaced.
+    """
     for pattern in _SECRET_PATTERNS:
         text = pattern.sub(replacement, text)
     return text
