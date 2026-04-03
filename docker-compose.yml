@@ -21,7 +21,7 @@ services:
       # ── Orchestration Configuration ──
       - ORCHESTRATION_ROOT=/opt/orchestration                               # Base directory for all orchestration files
       - GITHUB_ORG=${GITHUB_ORG}                                            # Target GitHub organization
-      - GITHUB_REPO=${GITHUB_REPO}                                          # Target GitHub repository (owner/repo)
+      - GITHUB_REPO=${GITHUB_REPO}                                          # Target GitHub repository (repo name only; org is set separately)
     volumes:
       - server-memory:/opt/orchestration/.memory                            # MCP knowledge graph persistence (JSONL)
 
@@ -42,7 +42,7 @@ services:
       - GH_ORCHESTRATION_AGENT_TOKEN=${GH_ORCHESTRATION_AGENT_TOKEN}        # Original token name (used by some scripts)
       # ── Repository Configuration ──
       - GITHUB_ORG=${GITHUB_ORG}                                            # Target GitHub organization
-      - GITHUB_REPO=${GITHUB_REPO}                                          # Target GitHub repository (owner/repo)
+      - GITHUB_REPO=${GITHUB_REPO}                                          # Target GitHub repository (repo name only; org is set separately)
       # ── Webhook Security ──
       - WEBHOOK_SECRET=${WEBHOOK_SECRET}                                    # HMAC secret for webhook signature verification
       - SENTINEL_BOT_LOGIN=${SENTINEL_BOT_LOGIN:-}                          # Bot login for issue comment attribution

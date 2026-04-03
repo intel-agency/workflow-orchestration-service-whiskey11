@@ -57,8 +57,7 @@ environment variable defaults to this path; scripts resolve their paths relative
 │   └── workflows/
 │       └── prompts/
 │           └── orchestrator-agent-prompt.md  # Prompt template with __EVENT_DATA__ placeholder
-├── prompts/                             # Assembled prompt output directory
-│   └── .assembled-orchestrator-prompt.md  # Generated at runtime
+├── .assembled-orchestrator-prompt.md    # Assembled prompt (generated at runtime by assemble-orchestrator-prompt.sh)
 ├── scripts/                             # Shell bridge and utility scripts (5 primary)
 │   ├── devcontainer-opencode.sh         # Primary CLI wrapper for devcontainer orchestration
 │   ├── assemble-orchestrator-prompt.sh  # Assembles prompt from template + event data
@@ -169,13 +168,14 @@ environment variable defaults to this path; scripts resolve their paths relative
 All scripts resolve paths relative to `ORCHESTRATION_ROOT`:
 
 ```bash
-ORCHESTRATION_ROOT="${ORCHESTRATION_ROOT:-/opt/orchestration}"
+ORCHESTRATION_ROOT="${ORCHESTRATION_ROOT:-.}"
 ```
 
-- **Server container**: Uses default `/opt/orchestration` — files are baked into the image.
-- **Local development**: Falls back to the workspace root (e.g., `/workspaces/my-repo`) — scripts
-  work from the checkout directory without modification.
-- **GitHub Actions**: Uses the Actions workspace (e.g., `/home/runner/work/my-repo/my-repo`) —
-  `actions/checkout` populates the directory.
+- **Server container**: Set to `/opt/orchestration` via `docker-compose.yml` environment variable —
+  files are baked into the image.
+- **Local development**: Falls back to `.` (current directory) — scripts work from the checkout
+  directory without modification.
+- **GitHub Actions**: Falls back to `.` within the Actions workspace — `actions/checkout` populates
+  the directory.
 
-No symlinks are required. All paths are absolute and deterministic at runtime.
+No symlinks are required. All paths are absolute or relative to `ORCHESTRATION_ROOT` and deterministic at runtime.

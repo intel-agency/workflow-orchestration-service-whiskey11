@@ -31,9 +31,9 @@ PROMPT_STRING=""
 OPENCODE_SERVER_DIR="${OPENCODE_SERVER_DIR:-}"
 
 # ORCHESTRATION_ROOT resolves the base directory for project files.
-# In the server container this defaults to /opt/orchestration; in local dev
-# or CI it falls back to the workspace root directory.
-ORCHESTRATION_ROOT="${ORCHESTRATION_ROOT:-}"
+# In the server container this is set to /opt/orchestration (via docker-compose);
+# in local dev or CI it falls back to the current directory (.).
+ORCHESTRATION_ROOT="${ORCHESTRATION_ROOT:-.}"
 
 usage() {
     cat >&2 <<'EOF'
@@ -106,11 +106,8 @@ case "$COMMAND" in
                 docker start "$container_id"
             fi
         fi
-        # Resolve server script path: prefer ORCHESTRATION_ROOT, fall back to workspace-relative
-        server_script="${ORCHESTRATION_ROOT:+$ORCHESTRATION_ROOT/}scripts/start-opencode-server.sh"
-        if [[ -z "$ORCHESTRATION_ROOT" ]]; then
-            server_script="./scripts/start-opencode-server.sh"
-        fi
+        # Resolve server script path relative to ORCHESTRATION_ROOT
+        server_script="${ORCHESTRATION_ROOT}/scripts/start-opencode-server.sh"
         devcontainer exec "${shared_args[@]}" \
             -- bash "$server_script"
         ;;
@@ -140,11 +137,8 @@ case "$COMMAND" in
                 OPENCODE_SERVER_DIR="/workspaces/$(basename "$(cd "$WORKSPACE_FOLDER" && pwd)")"
             fi
         fi
-        # Resolve prompt runner script path: prefer ORCHESTRATION_ROOT, fall back to workspace-relative
-        run_script="${ORCHESTRATION_ROOT:+$ORCHESTRATION_ROOT/}run_opencode_prompt.sh"
-        if [[ -z "$ORCHESTRATION_ROOT" ]]; then
-            run_script="./run_opencode_prompt.sh"
-        fi
+        # Resolve prompt runner script path relative to ORCHESTRATION_ROOT
+        run_script="${ORCHESTRATION_ROOT}/scripts/run_opencode_prompt.sh"
         devcontainer exec "${shared_args[@]}" \
             --remote-env ZHIPU_API_KEY="$ZHIPU_API_KEY" \
             --remote-env KIMI_CODE_ORCHESTRATOR_AGENT_API_KEY="$KIMI_CODE_ORCHESTRATOR_AGENT_API_KEY" \
