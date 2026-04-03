@@ -30,6 +30,11 @@ PROMPT_FILE=""
 PROMPT_STRING=""
 OPENCODE_SERVER_DIR="${OPENCODE_SERVER_DIR:-}"
 
+# ORCHESTRATION_ROOT resolves the base directory for project files.
+# In the server container this defaults to /opt/orchestration; in local dev
+# or CI it falls back to the workspace root directory.
+ORCHESTRATION_ROOT="${ORCHESTRATION_ROOT:-}"
+
 usage() {
     cat >&2 <<'EOF'
 Usage: devcontainer-opencode.sh <command> [options]
@@ -101,8 +106,13 @@ case "$COMMAND" in
                 docker start "$container_id"
             fi
         fi
+        # Resolve server script path: prefer ORCHESTRATION_ROOT, fall back to workspace-relative
+        server_script="${ORCHESTRATION_ROOT:+$ORCHESTRATION_ROOT/}scripts/start-opencode-server.sh"
+        if [[ -z "$ORCHESTRATION_ROOT" ]]; then
+            server_script="./scripts/start-opencode-server.sh"
+        fi
         devcontainer exec "${shared_args[@]}" \
-            -- bash ./scripts/start-opencode-server.sh
+            -- bash "$server_script"
         ;;
 
     prompt)
@@ -124,7 +134,16 @@ case "$COMMAND" in
         fi
         # Derive default server-side dir from the workspace folder basename
         if [[ -z "$OPENCODE_SERVER_DIR" ]]; then
-            OPENCODE_SERVER_DIR="/workspaces/$(basename "$(cd "$WORKSPACE_FOLDER" && pwd)")"
+            if [[ -n "$ORCHESTRATION_ROOT" ]]; then
+                OPENCODE_SERVER_DIR="$ORCHESTRATION_ROOT"
+            else
+                OPENCODE_SERVER_DIR="/workspaces/$(basename "$(cd "$WORKSPACE_FOLDER" && pwd)")"
+            fi
+        fi
+        # Resolve prompt runner script path: prefer ORCHESTRATION_ROOT, fall back to workspace-relative
+        run_script="${ORCHESTRATION_ROOT:+$ORCHESTRATION_ROOT/}run_opencode_prompt.sh"
+        if [[ -z "$ORCHESTRATION_ROOT" ]]; then
+            run_script="./run_opencode_prompt.sh"
         fi
         devcontainer exec "${shared_args[@]}" \
             --remote-env ZHIPU_API_KEY="$ZHIPU_API_KEY" \
@@ -132,7 +151,7 @@ case "$COMMAND" in
             --remote-env GITHUB_TOKEN="$GH_ORCHESTRATION_AGENT_TOKEN" \
             --remote-env GITHUB_PERSONAL_ACCESS_TOKEN="$GH_ORCHESTRATION_AGENT_TOKEN" \
             --remote-env GH_ORCHESTRATION_AGENT_TOKEN="$GH_ORCHESTRATION_AGENT_TOKEN" \
-            -- bash ./run_opencode_prompt.sh -a "$OPENCODE_SERVER_URL" -d "$OPENCODE_SERVER_DIR" "${prompt_arg[@]}"
+            -- bash "$run_script" -a "$OPENCODE_SERVER_URL" -d "$OPENCODE_SERVER_DIR" "${prompt_arg[@]}"
         ;;
 
     status)
