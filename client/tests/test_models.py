@@ -2,6 +2,7 @@
 
 import pytest
 from datetime import datetime, timezone
+from pydantic import ValidationError
 
 from src.models.work_item import (
     TaskType,
@@ -223,16 +224,16 @@ class TestWorkItem:
         assert item.status == WorkItemStatus.PENDING
 
     def test_invalid_task_type_raises(self):
-        with pytest.raises(Exception):
+        with pytest.raises(ValidationError):
             WorkItem(**{**self.SAMPLE_MINIMAL, "task_type": "INVALID"})
 
     def test_invalid_status_raises(self):
-        with pytest.raises(Exception):
+        with pytest.raises(ValidationError):
             WorkItem(**{**self.SAMPLE_MINIMAL, "status": "INVALID"})
 
     def test_missing_required_field_raises(self):
         """id is required — omitting it should raise validation error."""
-        with pytest.raises(Exception):
+        with pytest.raises(ValidationError):
             WorkItem(
                 issue_number=1,
                 source_url="http://example.com",

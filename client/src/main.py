@@ -21,11 +21,12 @@ from fastapi.middleware.cors import CORSMiddleware
 
 from src.config import (
     WEBHOOK_PORT,
-    LOG_LEVEL,
     HTTP_MAX_KEEPALIVE_CONNECTIONS,
     HTTP_MAX_CONNECTIONS,
     HTTP_CONNECT_TIMEOUT,
     HTTP_READ_TIMEOUT,
+    HTTP_WRITE_TIMEOUT,
+    HTTP_POOL_TIMEOUT,
 )
 
 logger = logging.getLogger("workflow-orchestration-client")
@@ -38,12 +39,6 @@ async def lifespan(app: FastAPI) -> AsyncGenerator[None, None]:
     Creates an AsyncClient with connection pool limits and timeout defaults
     on startup, stores it on app.state.http_client, and closes it on shutdown.
     """
-    # Configure structured logging
-    logging.basicConfig(
-        level=LOG_LEVEL,
-        format="%(asctime)s [%(levelname)s] %(name)s - %(message)s",
-    )
-
     # Create shared httpx client with pool limits and timeouts
     client = httpx.AsyncClient(
         limits=httpx.Limits(
@@ -53,6 +48,8 @@ async def lifespan(app: FastAPI) -> AsyncGenerator[None, None]:
         timeout=httpx.Timeout(
             connect=HTTP_CONNECT_TIMEOUT,
             read=HTTP_READ_TIMEOUT,
+            write=HTTP_WRITE_TIMEOUT,
+            pool=HTTP_POOL_TIMEOUT,
         ),
     )
     app.state.http_client = client
@@ -80,11 +77,12 @@ def create_app() -> FastAPI:
         lifespan=lifespan,
     )
 
-    # CORS middleware — allow common development origins
+    # CORS middleware — wildcard origins (restrict in production)
+    # NOTE: allow_credentials=True is incompatible with allow_origins=["*"]
+    # and would cause a runtime CORS error. Remove credentials if using wildcards.
     app.add_middleware(
         CORSMiddleware,
         allow_origins=["*"],  # Restrict in production
-        allow_credentials=True,
         allow_methods=["*"],
         allow_headers=["*"],
     )
@@ -125,4 +123,5 @@ async def main():
 
 
 if __name__ == "__main__":
-    asyncio.run(main())
+    app = create_app()
+    uvicorn.run(app, host="0.0.0.0", port=WEBHOOK_PORT)

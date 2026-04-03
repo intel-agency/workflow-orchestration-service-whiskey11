@@ -13,7 +13,7 @@ from datetime import datetime
 from enum import Enum
 from typing import Dict, List, Optional
 
-from pydantic import BaseModel, Field
+from pydantic import BaseModel, ConfigDict, Field
 
 
 class TaskType(str, Enum):
@@ -33,6 +33,12 @@ class WorkItemStatus(str, Enum):
 
     Includes both GitHub label-based values (used by sentinel/notifier)
     and generic lifecycle values for cross-provider usage.
+
+    The "agent:*" values correspond to actual GitHub labels managed by the
+    sentinel and notifier components. The uppercase generic values (PENDING,
+    COMPLETED, FAILED, CANCELLED) are internal status indicators used for
+    provider-agnostic lifecycle tracking — they do NOT correspond to GitHub
+    labels and should not be used as label names.
     """
 
     # GitHub label-based statuses (used by sentinel and notifier)
@@ -44,7 +50,7 @@ class WorkItemStatus(str, Enum):
     INFRA_FAILURE = "agent:infra-failure"
     STALLED_BUDGET = "agent:stalled-budget"
 
-    # Generic lifecycle statuses (provider-agnostic)
+    # Generic lifecycle statuses (provider-agnostic, internal use only — NOT GitHub labels)
     PENDING = "PENDING"
     COMPLETED = "COMPLETED"
     FAILED = "FAILED"
@@ -62,7 +68,7 @@ class WorkItem(BaseModel):
     are all Optional with defaults to maintain backward compatibility.
     """
 
-    model_config = {"from_attributes": True}
+    model_config = ConfigDict(from_attributes=True)
 
     # --- Core fields (required) ---
     id: str

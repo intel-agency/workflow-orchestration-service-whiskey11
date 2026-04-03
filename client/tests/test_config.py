@@ -13,16 +13,31 @@ import pytest
 
 def _reload_config(monkeypatch: pytest.MonkeyPatch, env: dict) -> object:
     """Set env vars, reload config module, return the fresh module."""
-    monkeypatch.delenv("LOG_LEVEL", raising=False)
-    monkeypatch.delenv("GITHUB_TOKEN", raising=False)
-    monkeypatch.delenv("GITHUB_ORG", raising=False)
-    monkeypatch.delenv("GITHUB_REPO", raising=False)
-    monkeypatch.delenv("POLL_INTERVAL", raising=False)
-    monkeypatch.delenv("MAX_BACKOFF", raising=False)
-    monkeypatch.delenv("WEBHOOK_PORT", raising=False)
-    monkeypatch.delenv("HTTP_MAX_CONNECTIONS", raising=False)
-    monkeypatch.delenv("HTTP_CONNECT_TIMEOUT", raising=False)
-    monkeypatch.delenv("HTTP_READ_TIMEOUT", raising=False)
+    # Clear ALL config-related env vars to prevent test flakiness
+    _config_env_vars = [
+        "LOG_LEVEL",
+        "GITHUB_TOKEN",
+        "GITHUB_ORG",
+        "GITHUB_REPO",
+        "POLL_INTERVAL",
+        "MAX_BACKOFF",
+        "HEARTBEAT_INTERVAL",
+        "SUBPROCESS_TIMEOUT",
+        "WEBHOOK_SECRET",
+        "WEBHOOK_PORT",
+        "HTTP_MAX_KEEPALIVE_CONNECTIONS",
+        "HTTP_MAX_CONNECTIONS",
+        "HTTP_CONNECT_TIMEOUT",
+        "HTTP_READ_TIMEOUT",
+        "HTTP_WRITE_TIMEOUT",
+        "HTTP_POOL_TIMEOUT",
+        "OPENCODE_SERVER_URL",
+        "OPENCODE_SERVER_DIR",
+        "SENTINEL_BOT_LOGIN",
+        "SHELL_BRIDGE_PATH",
+    ]
+    for var in _config_env_vars:
+        monkeypatch.delenv(var, raising=False)
 
     for key, value in env.items():
         monkeypatch.setenv(key, value)
